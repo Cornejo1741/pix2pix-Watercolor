@@ -1,75 +1,118 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Sep  9 13:28:25 2019
-
-@author: Rene
-"""
-
-
-
-import numpy as np
+import math
 import cv2
-from Metodos import operaciones
-from Metodoscolor import RGBSeparar
-MB=np.array([[0,0,1,0,0],
-             [0,1,1,1,0],
-             [1,1,1,1,1],
-             [0,1,1,1,0],
-             [0,0,1,0,0]])
-tamaño =286
-dim = (tamaño, tamaño)
-U = 180
-nombre  = 'Pintura-'
-nombre3 = '.jpg'
-inicial = 1
-final = 400
-Fac = 0.4
-Fac2 = 0.7
-for Num in range(inicial,final+1):
-    
-    nombre2 = (str)(Num)
-    print(nombre+nombre2+nombre3)
-    img = cv2.imread(nombre+nombre2+nombre3)
-    imgcont = img
-    imgcont2 = img    
-    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    MOD   = operaciones(gray,MB,img)
-    color = RGBSeparar(gray,img)  
-    MOD2   = operaciones(gray,MB,imgcont)
-    color2 = RGBSeparar(gray,imgcont)      
-    Original = MOD.recortar(gray,img)
-    Original  = cv2.resize(Original,  dim, interpolation = cv2.INTER_AREA)
-    
-    #######################EROSION##########################################
-    R  = color.MRed(gray,img)
-    G  = color.MGreen(gray,img)  
-    B  = color.MBlue(gray,img)  
-    R2 = R
-    G2 = G
-    B2 = B
-    R2 = MOD2.umbralbin(R2,U)
-    G2 = MOD2.umbralbin(G2,U)  
-    B2 = MOD2.umbralbin(B2,U)     
-    
-    #cv2.imshow('Rojo',R)
-    #cv2.imshow('Verde',G)
-    #cv2.imshow('Azul',B)
+import numpy as np
+class operaciones:
 
+    def __init__(self, I, f ,G):
+        self.I=I
+        self.f=f  
+        self.G=G 
+    def recortar(self, I,G):
+        M,N = I.shape
+        LadoMENOR = 0
+        corrM = 0
+        corrN = 0
+        if (I.shape[0]<I.shape[1]):
+            LadoMENOR = I.shape[0]
+        else:
+            LadoMENOR = I.shape[1]
+        corrM = int((M/2)-(LadoMENOR/2))
+        corrN = int((N/2)-(LadoMENOR/2))
+        #print("M: "+str(M)+", N: "+str(N))
+        #print("Lado menor: "+str(LadoMENOR))
+        #print("prueva M<-: "+str(corrM))
+        #print("prueva M->: "+str((int)(abs((M/2)-(LadoMENOR/2))+LadoMENOR)))        
+        #print("prueva N<-: "+str(corrN))
+        #print("prueva N->: "+str((int)(abs((N/2)-(LadoMENOR/2))+LadoMENOR)))        
+        h = np.zeros((LadoMENOR,LadoMENOR), G.dtype)
+        h = cv2.cvtColor(h,cv2.COLOR_GRAY2BGR)
+        k=0
+        l=0
+        Vector = np.array([0,0,0])
+        for m in range((int)(abs((M/2)-(LadoMENOR/2))),(int)(abs((M/2)-(LadoMENOR/2))+LadoMENOR)):
+            for n in range((int)(abs((N/2)-(LadoMENOR/2))),(int)(abs((N/2)-(LadoMENOR/2))+LadoMENOR)):
+                k=m-corrM
+                l=n-corrN  
+                Vector = G[m,n]
+                h[k,l]= Vector
+
+                      
+        return h
+    def erocion(self, I, f):
+        M,N = I.shape
+        #print("M: "+str(M)+", N: "+str(N))
+        K,L = f.shape
+        h = np.zeros((M,N), I.dtype)
     
-    R = MOD.erocion(R,MB)
-    G = MOD.erocion(G,MB)
-    B = MOD.erocion(B,MB)
-    R3 = cv2.addWeighted(R,Fac,R2,(1-Fac),0)
-    G3 = cv2.addWeighted(G,Fac,G2,(1-Fac),0)
-    B3 = cv2.addWeighted(B,Fac,B2,(1-Fac),0)
-    
-    img = color2.Msumacolor(imgcont,R3,G3,B3, gray)
-    ########################EROCION#########################################
-    img = cv2.addWeighted(img,Fac2,imgcont2,(1-Fac2),0)
-    
-    img = MOD.recortar(gray,img)
-    img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
-     
-    cv2.imwrite('M-'+nombre+nombre2+nombre3,img)
-    cv2.imwrite(nombre+nombre2+nombre3,Original)
+        padding_size = int((K)/2)
+
+        for m in range((int)((f.shape[0]-1)/2),(int)(I.shape[0]-(f.shape[0]-1)/2)):
+            for n in range((int)((f.shape[1]-1)/2),(int)(I.shape[1]-(f.shape[1]-1)/2)):
+                maximo = I[m,n]
+                for k in range(0,K):
+                    for l in range(0,L):
+                        if(f[k][l]==1):
+                           Tem =I[m+k-(int)((f.shape[0]-1)/2)][n+l-(int)((f.shape[1]-1)/2)]
+                           if(maximo>Tem):
+                                maximo = Tem
+                    h[m,n]=maximo
+        return h
+    def umbralbin(self, I, U):
+        M,N = I.shape
+        #print("M: "+str(M)+", N: "+str(N))
+ 
+        h = np.zeros((M,N), I.dtype)
+
+
+        for m in range(0,I.shape[0]):
+            for n in range(0,I.shape[1]):
+                if(U<I[m][n]):
+                    h[m,n]=255
+                else:
+                    h[m,n]=0
+        return h
+    def desumbralbin(self, I):
+        M,N = I.shape
+        #print("M: "+str(M)+", N: "+str(N))
+ 
+        h = np.zeros((M,N), I.dtype)
+
+
+        for m in range(0,I.shape[0]):
+            for n in range(0,I.shape[1]):
+                if(I[m][n]==1):
+                    h[m,n]=255
+                elif(I[m][n]==0):
+                    h[m,n]=122                    
+                else:
+                    h[m,n]=0
+        return h
+    def interseccion(self, I,F):
+        M,N = I.shape
+        #print("M: "+str(M)+", N: "+str(N))
+ 
+        h = np.zeros((M,N), I.dtype)
+
+
+        for m in range(0,I.shape[0]):
+            for n in range(0,I.shape[1]):
+                if(I[m][n]==F[m][n]):
+                    h[m,n]=I[m][n]
+                else:
+                    h[m,n]=-1
+        return h   
+    def complemento(self, I):
+        M,N = I.shape
+        #print("M: "+str(M)+", N: "+str(N))
+ 
+        h = np.zeros((M,N), I.dtype)
+
+
+        for m in range(0,I.shape[0]):
+            for n in range(0,I.shape[1]):
+                if(I[m][n]==1):
+                    h[m,n]=0
+                else:
+                    h[m,n]=1
+        return h      
 
